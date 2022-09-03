@@ -9,6 +9,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+const userSchema = joi.object({
+    name: joi.string().required()
+});
+
 const mongoClient = new MongoClient(process.env.MONGO_URI)
 let db;
 
@@ -18,27 +22,38 @@ mongoClient.connect().then(() => {
 
 app.post("/participants", async (req,res) => {
     const {name} = req.body;
-    const userSchema = joi.object({
-        name: joi.string().required()
-    });
-    const validation = userSchema.validate(name, {abortEarly: true});
+    
+    const validation = userSchema.validate({name}, {abortEarly: false});
+        
    
     if(validation.error){
-        console.log(validation.error.details);
         res.status(422).send(validation.error.message);
         return;
     }
 
     try{
+        const sameParticipant = await db.collection("participants").findOne({name: name});
+
+        if(sameParticipant){
+            return res.sendStatus(409);
+        }
+
         await db.collection("participants").insertOne({name, lastStatus: Date.now()});
-        res.sendStatus(201);
+        return res.sendStatus(201);
 
     } catch(error){
-        res.sendStatus(422);
+        return res.sendStatus(500);
     }
     
 });
 
+app.get("/participants", async (req, res) => {
+    try{
+        const partcipantes = await db.collection("participants").find().toArray();
+        return res.send(partcipantes);
+    }catch(error){
+        return res.sendStatus(500);    }
+})
 
 
 app.listen(5000, () => console.log('listening on port 5000'));

@@ -46,6 +46,11 @@ app.post("/participants", async (req,res) => {
         }
 
         await db.collection("participants").insertOne({name, lastStatus: Date.now()});
+        await db.collection("messages").insertOne({from: name, 
+                                                 to: 'Todos', 
+                                                 text: 'entra na sala...', 
+                                                 type: 'status', 
+                                                 time: dayjs().format('HH:mm:ss')})
         return res.sendStatus(201);
 
     } catch(error){
@@ -73,9 +78,9 @@ app.post("/messages", async (req, res) => {
     }
 
     try {
-        const toUser = await db.collection("participants").findOne({name: user});
+        const fromUser = await db.collection("participants").findOne({name: user});
 
-        if(!toUser){
+        if(!fromUser){
             return res.sendStatus(422);
         }
 
@@ -90,6 +95,34 @@ app.post("/messages", async (req, res) => {
         return res.sendStatus(500);
     }
 });
+
+app.get("/messages", async (req, res) => {
+    try{
+        const messages = await db.collection("messages").find().toArray();
+        return res.send(messages);
+    }catch(error){
+        res.sendStatus(500);
+    }
+})
+
+app.post("/status", async (req, res) => {
+    const {user} = req.headers;
+
+    try{
+        const hasUser = await db.collection("participants").findOne({name: user});
+
+        if(!hasUser){
+            return res.sendStatus(404);
+        }
+
+        await db.collection("participants").updateOne({name: user},{$set: {lastStatus: Date.now()}})
+
+        res.sendStatus(200);
+
+    }catch(error){
+        return res.sendStatus(500);
+    }
+})
 
 
 app.listen(5000, () => console.log('listening on port 5000'));

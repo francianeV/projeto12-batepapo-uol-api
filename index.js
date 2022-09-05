@@ -85,9 +85,9 @@ app.post("/messages", async (req, res) => {
         }
 
         await db.collection("messages").insertOne({from: user, 
-                                                   to: to, 
-                                                   text: text, 
-                                                   type: type, 
+                                                   to, 
+                                                   text,
+                                                   type,
                                                    time: dayjs().format('HH:mm:ss')});
         return res.sendStatus(201);
         
@@ -97,13 +97,29 @@ app.post("/messages", async (req, res) => {
 });
 
 app.get("/messages", async (req, res) => {
-    try{
+    const limit = parseInt(req.query.limit);
+    const { user } = req.headers;
+
+    try {
         const messages = await db.collection("messages").find().toArray();
-        return res.send(messages);
-    }catch(error){
+        const userMessages = messages.filter((message) => {
+            const { to, type, from } = message;
+            const toUser = to === user || to === "Todos" || from === user;
+            const isPublic = type === "message"
+
+            return toUser || isPublic;
+        });
+
+        if (limit) {
+            res.send(userMessages.slice(-limit));
+        }
+
+        res.send(userMessages);
+
+    } catch (error) {
         res.sendStatus(500);
     }
-})
+});
 
 app.post("/status", async (req, res) => {
     const {user} = req.headers;
@@ -123,6 +139,32 @@ app.post("/status", async (req, res) => {
         return res.sendStatus(500);
     }
 })
+/*
 
+setInterval(async() => {
+    const seconds = Date.now() - 10000;
+
+    try{
+    const inativePartcipants = await db.collection("participants").find({lastStatus: {$lte: seconds}}).toArray();
+    
+    if(inativePartcipants.length > 0){
+        const inativeMessage = inativePartcipants.map( inativo => {
+            return {
+                from: inativo.name,
+                to: "Todos",
+                Text: "sai da sala...",
+                type: "status",
+                time: dayjs().format("HH:mm:ss")
+            };
+        });
+
+        await db.collection("messages").insertMany(inativeMessage);
+        await db.collection("participants").deleteMany({lastStatus: {$lte: seconds}});
+    }
+   }catch(error){
+        return res.sendStatus(500);
+    }
+},15000);
+*/
 
 app.listen(5000, () => console.log('listening on port 5000'));

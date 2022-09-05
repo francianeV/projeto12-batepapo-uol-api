@@ -139,7 +139,6 @@ app.post("/status", async (req, res) => {
         return res.sendStatus(500);
     }
 })
-/*
 
 setInterval(async() => {
     const seconds = Date.now() - 10000;
@@ -165,6 +164,5 @@ setInterval(async() => {
         return res.sendStatus(500);
     }
 },15000);
-*/
 
 app.listen(5000, () => console.log('listening on port 5000'));

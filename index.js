@@ -20,7 +20,7 @@ const messagesSchema = joi.object({
     type: joi.string().valid('message', 'private_message').required()
 });
 
-const mongoClient = new MongoClient(process.env.MONGO_URI)
+const mongoClient = new MongoClient(process.env.MONGO_URI);
 let db;
 
 mongoClient.connect().then(() => {
@@ -50,7 +50,7 @@ app.post("/participants", async (req,res) => {
                                                  to: 'Todos', 
                                                  text: 'entra na sala...', 
                                                  type: 'status', 
-                                                 time: dayjs().format('HH:mm:ss')})
+                                                 time: dayjs().format('HH:mm:ss')});
         return res.sendStatus(201);
 
     } catch(error){
@@ -64,7 +64,8 @@ app.get("/participants", async (req, res) => {
         const partcipantes = await db.collection("participants").find().toArray();
         return res.send(partcipantes);
     }catch(error){
-        return res.sendStatus(500);    }
+        return res.sendStatus(500);    
+    }
 })
 
 app.post("/messages", async (req, res) => {
@@ -105,19 +106,19 @@ app.get("/messages", async (req, res) => {
         const userMessages = messages.filter((message) => {
             const { to, type, from } = message;
             const toUser = to === user || to === "Todos" || from === user;
-            const isPublic = type === "message"
+            const isPublic = type === "message";
 
             return toUser || isPublic;
         });
 
-        if (limit) {
-            res.send(userMessages.slice(-limit));
+        if (limit && limit !== NaN) {
+            return res.send(userMessages.slice(-limit));
         }
 
-        res.send(userMessages);
+        return res.send(userMessages);
 
     } catch (error) {
-        res.sendStatus(500);
+        return res.sendStatus(500);
     }
 });
 
@@ -131,7 +132,7 @@ app.post("/status", async (req, res) => {
             return res.sendStatus(404);
         }
 
-        await db.collection("participants").updateOne({name: user},{$set: {lastStatus: Date.now()}})
+        await db.collection("participants").updateOne({name: user},{$set: {lastStatus: Date.now()}});
 
         res.sendStatus(200);
 
@@ -162,6 +163,42 @@ app.delete("/messages/:id", async (req, res) => {
     }
 })
 
+app.put("/messages/:id", async (req, res) => {
+    const {to, text, type} = req.body;
+    const {user} = req.headers;
+    const {id} = req.params;
+
+    const validation = messagesSchema.validate({to, text, type},{abortEarly: false});
+
+    if(validation.error){
+        return res.sendStatus(422);
+    }
+
+    try{
+        const hasUser = await db.collection("participants").findOne({name: user});
+
+        if(!hasUser){
+            return res.sendStatus(404);
+        }
+
+        const message = await db.collection("messages").findOne({_id: new ObjectId(id)});
+
+        if(!message){
+            return res.sendStatus(404);
+        }
+
+        if(message.from !== user){
+            return res.sendStatus(401);
+        }
+
+        await db.collection("messages").updateOne({_id: new ObjectId(id)}, {$set: {to, text, type}});
+        return res.sendStatus(200);
+
+    }catch(error){
+        return res.sendStatus(500);
+    }
+})
+
 setInterval(async() => {
     const seconds = Date.now() - 10000;
 
@@ -173,7 +210,7 @@ setInterval(async() => {
             return {
                 from: inativo.name,
                 to: "Todos",
-                Text: "sai da sala...",
+                text: "sai da sala...",
                 type: "status",
                 time: dayjs().format("HH:mm:ss")
             };
@@ -187,4 +224,4 @@ setInterval(async() => {
     }
 },15000);
 
-app.listen(5000, () => console.log('listening on port 5000'));
+app.listen(5000);
